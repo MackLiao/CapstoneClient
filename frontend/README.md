@@ -71,3 +71,19 @@ export default defineConfig([
   },
 ])
 ```
+
+To boot up the frontend
+```
+cd frontend & npm run dev
+```
+
+To boot up the backend
+```
+source .venv/bin/activate
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+To boot up the mock FPGA
+```
+MOCK_FPGA_DELAY=0.5 python -m uvicorn backend.mock_fpga:app --host 127.0.0.1 --port 5001 --reload
+```
