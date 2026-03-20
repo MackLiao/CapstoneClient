@@ -12,7 +12,7 @@ app = FastAPI(title="Capstone Matrix Multiplication Client")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5174", "http://localhost:3000"],
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -21,12 +21,10 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    body = await request.body()
     logger.debug(
         f"Request: {request.method} {request.url} "
         f"Origin={request.headers.get('origin')} "
-        f"Content-Type={request.headers.get('content-type')} "
-        f"Body={body[:500] if body else b'(empty)'}"
+        f"Content-Type={request.headers.get('content-type')}"
     )
     response = await call_next(request)
     logger.debug(f"Response: {response.status_code} for {request.method} {request.url}")
