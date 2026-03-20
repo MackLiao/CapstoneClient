@@ -87,3 +87,8 @@ To boot up the mock FPGA
 ```
 MOCK_FPGA_DELAY=0.5 python -m uvicorn backend.mock_fpga:app --host 0.0.0.0 --port 5001 --reload
 ```
+
+To boot up the Flask app on the PYNQ board
+```
+python3 app.py --frac-bits 10 --port 5000
+```
