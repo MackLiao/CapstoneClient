@@ -18,8 +18,8 @@ class MockFPGAClient:
 
     async def post(self, url, json=None, timeout=None):
         self.call_count += 1
-        A = np.array(json["matrix_a"])
-        B = np.array(json["matrix_b"])
+        A = np.array(json["A"])
+        B = np.array(json["B"])
 
         if self.call_count in self.fail_tiles:
             raise Exception("Mock FPGA failure")
@@ -27,7 +27,7 @@ class MockFPGAClient:
         if self.delay > 0:
             await asyncio.sleep(self.delay)
 
-        return MockResponse(np.matmul(A, B).tolist())
+        return MockResponse(np.matmul(A, B).tolist(), json.get("request_id"))
 
     async def __aenter__(self):
         return self
@@ -37,15 +37,26 @@ class MockFPGAClient:
 
 
 class MockResponse:
-    def __init__(self, result):
+    def __init__(self, result, request_id=None):
         self._result = result
+        self._request_id = request_id
         self.status_code = 200
 
     def raise_for_status(self):
         pass
 
     def json(self):
-        return {"result": self._result}
+        return {
+            "request_id": self._request_id,
+            "status": "ok",
+            "mode": "full",
+            "shape": None,
+            "elapsed_sec": 0.0,
+            "result": {"C": self._result},
+            "stats": None,
+            "verify": None,
+            "error": None,
+        }
 
 
 @pytest.mark.asyncio
@@ -64,8 +75,8 @@ async def test_full_pipeline_small(monkeypatch):
     original_dispatch = orch_module.dispatch_tile if hasattr(orch_module, 'dispatch_tile') else None
 
     async def mock_dispatch(client, a_tile, b_tile, fpga_url, timeout=60, max_retries=3, backoff_base=2.0):
-        response = await mock_client.post("", json={"matrix_a": a_tile.tolist(), "matrix_b": b_tile.tolist()})
-        return np.array(response.json()["result"])
+        response = await mock_client.post("", json={"A": a_tile.tolist(), "B": b_tile.tolist()})
+        return np.array(response.json()["result"]["C"])
 
     monkeypatch.setattr("backend.services.orchestrator.dispatch_tile", mock_dispatch)
 
@@ -93,8 +104,8 @@ async def test_non_square_matrix(monkeypatch):
     mock_client = MockFPGAClient()
 
     async def mock_dispatch(client, a_tile, b_tile, fpga_url, timeout=60, max_retries=3, backoff_base=2.0):
-        response = await mock_client.post("", json={"matrix_a": a_tile.tolist(), "matrix_b": b_tile.tolist()})
-        return np.array(response.json()["result"])
+        response = await mock_client.post("", json={"A": a_tile.tolist(), "B": b_tile.tolist()})
+        return np.array(response.json()["result"]["C"])
 
     monkeypatch.setattr("backend.services.orchestrator.dispatch_tile", mock_dispatch)
 

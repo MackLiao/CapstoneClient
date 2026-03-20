@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 
 import httpx
 import numpy as np
@@ -19,14 +20,17 @@ async def dispatch_tile(
     """Send two tiles to the FPGA for multiplication and return the result.
 
     Template endpoint: POST {fpga_url}/multiply
-    Payload: {"matrix_a": [[...]], "matrix_b": [[...]]}
-    Response: {"result": [[...]]}
+    Payload: {"A": [[...]], "B": [[...]], "request_id": "...", "return_mode": "full"}
+    Response: {"request_id": ..., "status": "ok", "result": {"C": [[...]]}, ...}
 
     Retries on timeout with exponential backoff.
     """
+    request_id = str(uuid.uuid4())
     payload = {
-        "matrix_a": a_tile.tolist(),
-        "matrix_b": b_tile.tolist(),
+        "A": a_tile.tolist(),
+        "B": b_tile.tolist(),
+        "request_id": request_id,
+        "return_mode": "full",
     }
 
     last_exception: Exception | None = None
@@ -39,8 +43,14 @@ async def dispatch_tile(
             )
             response.raise_for_status()
             data = response.json()
-            return np.array(data["result"], dtype=np.float64)
-        except (httpx.TimeoutException, httpx.HTTPStatusError) as e:
+
+            if data.get("status") == "error":
+                raise RuntimeError(
+                    f"FPGA returned error: {data.get('error', 'unknown')}"
+                )
+
+            return np.array(data["result"]["C"], dtype=np.float64)
+        except (httpx.TimeoutException, httpx.HTTPStatusError, RuntimeError) as e:
             last_exception = e
             if attempt < max_retries - 1:
                 wait = backoff_base ** (attempt + 1)
